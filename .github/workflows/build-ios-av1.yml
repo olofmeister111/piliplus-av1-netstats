@@ -1,0 +1,60 @@
+name: Build iOS AV1 patched IPA
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Checkout patch source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Prepare build tools
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-path
+          command -v pkg-config || brew install pkg-config
+
+      - name: Download original PiliPlus IPA
+        run: |
+          mkdir -p ios-check
+          curl --fail --location --retry 3 'https://github.com/bggRGjQaUbCoE/PiliPlus/releases/download/2.1.6.2/PiliPlus_ios_2.1.6%2B5472.ipa' --output 'ios-check/PiliPlus_ios_2.1.6+5472.ipa'
+
+      - name: Prepare FFmpeg AV1 patch
+        run: python3 ios-build-v2/prepare_codec.py --sdk "$(xcrun --sdk iphoneos --show-sdk-path)"
+
+      - name: Compile patched decoder
+        run: python3 ios-build-v2/run_compile.py
+
+      - name: Link decoder framework
+        run: python3 ios-build-v2/link_codec.py
+
+      - name: Package patched IPA
+        run: python3 ios-build-v2/build_ipa.py
+
+      - name: Upload patched IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: PiliPlus-iOS-AV1-v2
+          path: ios-build-v2/PiliPlus_iOS_2.1.6+5472_AV1-v2.ipa
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload build logs and validation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            ios-build-v2/configure.log
+            ios-build-v2/compile.log
+            ios-build-v2/检查结果.json
+          if-no-files-found: ignore
+          retention-days: 7
