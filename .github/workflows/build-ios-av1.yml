@@ -33,6 +33,9 @@ jobs:
       - name: Compile patched decoder
         run: python3 ios-build-v2/run_compile.py
 
+      - name: Compile required libavutil helper objects
+        run: make -C ios-build-v2/ffmpeg-7.0.2 -j6 libavutil/log2_tab.o libavutil/reverse.o
+
       - name: Link decoder framework
         run: python3 ios-build-v2/link_codec.py
 
